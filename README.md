@@ -31,7 +31,7 @@ composer require eg-mohamed/laravel-ga4-events
 Publish the package config:
 
 ```bash
-php artisan vendor:publish --tag="laravel-ga4-events-config"
+php artisan vendor:publish --tag="ga4-events-config"
 ```
 
 ## Quick Start
