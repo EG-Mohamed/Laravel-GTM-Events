@@ -13,7 +13,6 @@ class Ga4EventValidator
         $errors = [];
         $name = $this->normalizeEventName($payload['name'] ?? null, $errors);
         $params = $this->normalizeParams($payload['params'] ?? [], $errors);
-        $options = $this->normalizeOptions($payload['options'] ?? []);
         $valid = $errors === [];
 
         if (! $valid && $throwOnError) {
@@ -25,7 +24,6 @@ class Ga4EventValidator
             'errors' => array_values($errors),
             'name' => $name,
             'params' => $params,
-            'options' => $options,
         ];
     }
 
@@ -93,12 +91,6 @@ class Ga4EventValidator
 
             if (mb_strlen($normalizedKey) > $this->intConfig('max_param_key_length', 40)) {
                 $errors[] = (string) __('Event param key exceeds the allowed length.');
-
-                continue;
-            }
-
-            if ($this->isBlockedParamKey($normalizedKey)) {
-                $errors[] = (string) __('Event param key is blocked or reserved.');
 
                 continue;
             }
@@ -184,53 +176,6 @@ class Ga4EventValidator
         }
 
         return $normalized;
-    }
-
-    private function normalizeOptions(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $allowed = [
-            'send_to',
-            'event_callback',
-            'event_timeout',
-            'non_interaction',
-            'transport_type',
-            'debug_mode',
-        ];
-
-        return collect($value)
-            ->only($allowed)
-            ->toArray();
-    }
-
-    private function isBlockedParamKey(string $key): bool
-    {
-        $blockedKeys = $this->config['blocked_param_keys'] ?? [];
-
-        if (is_array($blockedKeys) && in_array($key, $blockedKeys, true)) {
-            return true;
-        }
-
-        $prefixes = $this->config['reserved_prefixes'] ?? [];
-
-        if (! is_array($prefixes)) {
-            return false;
-        }
-
-        foreach ($prefixes as $prefix) {
-            if (! is_string($prefix) || $prefix === '') {
-                continue;
-            }
-
-            if (str_starts_with($key, $prefix)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private function intConfig(string $key, int $default): int

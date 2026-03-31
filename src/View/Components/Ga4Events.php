@@ -16,4 +16,5 @@ class Ga4Events extends Component
             'ga4Config' => $this->ga4Events->toFrontendConfig(),
         ]);
     }
+
 }

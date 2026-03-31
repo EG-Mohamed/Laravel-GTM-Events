@@ -1,9 +1,12 @@
 @if ($ga4Config['enabled'])
-    <script id="ga4-events-config" type="application/json">{!! json_encode($ga4Config, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    @if ($ga4Config['injectGtmScript'] && $ga4Config['containerId'])
+        <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','{{ $ga4Config['containerId'] }}');</script>
+    @endif
+    <script id="gtm-events-config" type="application/json">{!! json_encode($ga4Config, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
     <script>
         (() => {
             const readConfig = () => {
-                const node = document.getElementById('ga4-events-config');
+                const node = document.getElementById('gtm-events-config');
 
                 if (!node) {
                     return {};
@@ -17,14 +20,15 @@
             };
 
             const config = readConfig();
-            const queue = [];
+
+            window.dataLayer = window.dataLayer || [];
 
             const print = (level, message, meta = null) => {
                 if (!config.debug) {
                     return;
                 }
 
-                const parts = [config.consolePrefix || '[GA4 Events]', `[${level}]`, message];
+                const parts = [config.consolePrefix || '[GTM Events]', `[${level}]`, message];
 
                 if (meta !== null) {
                     console.log(...parts, meta);
@@ -35,43 +39,12 @@
                 console.log(...parts);
             };
 
-            if (config.injectGtagScript && config.measurementId) {
-                const src = `${config.gtagUrl}?id=${encodeURIComponent(config.measurementId)}`;
-                if (!document.querySelector(`script[src="${src}"]`)) {
-                    const script = document.createElement('script');
-                    script.async = true;
-                    script.src = src;
-                    document.head.appendChild(script);
-                }
-
-                window.dataLayer = window.dataLayer || [];
-                const gtagFunctionName = config.gtagFunctionName || 'gtag';
-                window[gtagFunctionName] = window[gtagFunctionName] || function () {
-                    dataLayer.push(arguments);
-                };
-                window[gtagFunctionName]('js', new Date());
-                window[gtagFunctionName]('config', config.measurementId, {
-                    send_page_view: config.autoPageView === true,
-                });
-            }
-
             const sanitizeName = (value) => {
                 if (typeof value !== 'string') {
                     return '';
                 }
 
                 return value.trim();
-            };
-
-            const blockedKeys = Array.isArray(config.blockedParamKeys) ? config.blockedParamKeys : [];
-            const reservedPrefixes = Array.isArray(config.reservedPrefixes) ? config.reservedPrefixes : [];
-
-            const isBlockedParamKey = (key) => {
-                if (blockedKeys.includes(key)) {
-                    return true;
-                }
-
-                return reservedPrefixes.some((prefix) => key.startsWith(prefix));
             };
 
             const sanitizeParams = (params) => {
@@ -101,11 +74,6 @@
 
                     if (key.length > maxParamKeyLength) {
                         errors.push(`Event param key exceeds max length: ${key}`);
-                        continue;
-                    }
-
-                    if (isBlockedParamKey(key)) {
-                        errors.push(`Event param key is blocked: ${key}`);
                         continue;
                     }
 
@@ -150,7 +118,7 @@
                     return {};
                 }
 
-                if ('name' in rawPayload || 'params' in rawPayload || 'options' in rawPayload) {
+                if ('name' in rawPayload || 'params' in rawPayload) {
                     return rawPayload;
                 }
 
@@ -185,76 +153,22 @@
                 }
 
                 const payloadParams = payload && payload.params ? payload.params : {};
-                const payloadOptions = payload && payload.options ? payload.options : {};
                 const { values: params, errors: paramErrors } = sanitizeParams(payloadParams);
                 errors.push(...paramErrors);
-
-                const options = {
-                    ...(typeof config.defaultEventOptions === 'object' && config.defaultEventOptions ? config.defaultEventOptions : {}),
-                    ...(typeof payloadOptions === 'object' && payloadOptions && !Array.isArray(payloadOptions) ? payloadOptions : {}),
-                };
 
                 return {
                     valid: errors.length === 0,
                     errors,
-                    payload: {
-                        name,
-                        params,
-                        options,
-                    },
+                    payload: { name, params },
                 };
             };
 
-            const getGtag = () => {
-                const fn = window[config.gtagFunctionName || 'gtag'];
+            const pushToDataLayer = (payload, source) => {
+                window.dataLayer.push({ ecommerce: null });
+                window.dataLayer.push({ event: payload.name, ...payload.params });
+                print('INFO', `Event pushed to dataLayer from ${source}.`, payload);
 
-                if (typeof fn === 'function') {
-                    return fn;
-                }
-
-                return null;
-            };
-
-            const flushQueue = () => {
-                const gtag = getGtag();
-
-                if (!gtag || !queue.length) {
-                    return;
-                }
-
-                while (queue.length) {
-                    const item = queue.shift();
-                    gtag('event', item.name, {
-                        ...item.params,
-                        ...item.options,
-                    });
-                    print('INFO', 'Queued event sent to gtag.', item);
-                }
-            };
-
-            const sendToGtag = (payload, source) => {
-                const gtag = getGtag();
-
-                if (!gtag) {
-                    const canQueue = config.queueUntilGtagReady === true && queue.length < Number(config.maxQueueSize || 100);
-                    if (canQueue) {
-                        queue.push(payload);
-                        print('WARN', `gtag is not ready. Event queued from ${source}.`, payload);
-                        return { sent: false, queued: true, reason: 'gtag_not_ready' };
-                    }
-
-                    print('ERROR', `gtag is not ready. Event dropped from ${source}.`, payload);
-                    return { sent: false, queued: false, reason: 'gtag_not_ready' };
-                }
-
-                gtag('event', payload.name, {
-                    ...payload.params,
-                    ...payload.options,
-                });
-
-                print('INFO', `Event sent from ${source}.`, payload);
-
-                return { sent: true, queued: false, reason: null };
+                return { sent: true };
             };
 
             const dispatch = (rawPayload, source = 'manual') => {
@@ -262,32 +176,27 @@
                 const result = validatePayload(payload);
 
                 if (!result.valid) {
-                    print('ERROR', `Invalid GA4 payload from ${source}.`, result.errors);
+                    print('ERROR', `Invalid GTM payload from ${source}.`, result.errors);
 
                     if (config.dropInvalidEvents === true) {
-                        return { ok: false, sent: false, queued: false, errors: result.errors };
+                        return { ok: false, sent: false, errors: result.errors };
                     }
                 }
 
                 if (config.strictValidation === true && !result.valid) {
-                    return { ok: false, sent: false, queued: false, errors: result.errors };
+                    return { ok: false, sent: false, errors: result.errors };
                 }
 
-                const transport = sendToGtag(result.payload, source);
+                pushToDataLayer(result.payload, source);
 
-                return {
-                    ok: result.valid,
-                    sent: transport.sent,
-                    queued: transport.queued,
-                    errors: result.errors,
-                };
+                return { ok: result.valid, sent: true, errors: result.errors };
             };
 
-            const track = (name, params = {}, options = {}) => {
-                return dispatch({ name, params, options }, 'api');
+            const track = (name, params = {}) => {
+                return dispatch({ name, params }, 'api');
             };
 
-            window.addEventListener(config.eventBusName || 'ga4:event', (event) => {
+            window.addEventListener(config.eventBusName || 'gtm:event', (event) => {
                 dispatch(event && event.detail ? event.detail : {}, 'dom');
             });
 
@@ -297,27 +206,24 @@
                     return;
                 }
 
-                window.Livewire.on(config.livewireEventName || 'ga4-event', (payload) => {
+                window.Livewire.on(config.livewireEventName || 'gtm-event', (payload) => {
                     dispatch(normalizeRawPayload(payload), 'livewire');
                 });
 
-                print('INFO', 'Livewire listener registered.', config.livewireEventName || 'ga4-event');
+                print('INFO', 'Livewire listener registered.', config.livewireEventName || 'gtm-event');
             });
 
-            window[config.globalJsObject || 'GA4Events'] = {
+            window[config.globalJsObject || 'GTMEvents'] = {
                 track,
                 dispatch,
-                flushQueue,
                 config,
             };
 
-            print('INFO', 'GA4 bridge initialized.', config);
+            print('INFO', 'GTM bridge initialized.', config);
 
-            if (!config.measurementId) {
-                print('ERROR', 'Measurement ID is missing. Events might be dropped.');
+            if (!config.containerId) {
+                print('WARN', 'Container ID is missing. Auto GTM script injection is disabled.');
             }
-
-            setInterval(flushQueue, 600);
         })();
     </script>
 @endif

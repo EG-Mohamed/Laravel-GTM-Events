@@ -1,11 +1,13 @@
 {
     "name": "eg-mohamed/laravel-ga4-events",
-    "description": "A Laravel package to define and dispatch Google Analytics 4 (GA4) events.",
+    "description": "A Laravel package to push events to Google Tag Manager dataLayer from PHP, Livewire, and JavaScript.",
     "keywords": [
         "MohamedSaid",
         "laravel",
-        "laravel Ga4 Events",
-        "Google analytics"
+        "google tag manager",
+        "GTM",
+        "datalayer",
+        "analytics"
     ],
     "homepage": "https://github.com/eg-mohamed/laravel-ga4-events",
     "license": "MIT",

@@ -6,8 +6,8 @@ use RuntimeException;
 
 class InvalidGa4ConfigurationException extends RuntimeException
 {
-    public static function missingMeasurementId(): self
+    public static function missingContainerId(): self
     {
-        return new self((string) __('GA4 measurement ID is missing. Set GA4_MEASUREMENT_ID or ga4-events.measurement_id.'));
+        return new self((string) __('GTM container ID is missing. Set GTM_CONTAINER_ID or ga4-events.container_id.'));
     }
 }
