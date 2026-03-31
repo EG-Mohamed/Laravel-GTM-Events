@@ -2,6 +2,10 @@
 
 All notable changes to `Laravel-Ga4-Events` will be documented in this file.
 
+## 1.6.2 - 2026-03-31
+
+**Full Changelog**: https://github.com/EG-Mohamed/Laravel-GTM-Events/compare/1.6.1...1.6.2
+
 ## 1.6.1 - 2026-03-31
 
 **Full Changelog**: https://github.com/EG-Mohamed/Laravel-GTM-Events/compare/1.6...1.6.1
