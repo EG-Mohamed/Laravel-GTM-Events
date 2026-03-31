@@ -69,7 +69,7 @@
                         continue;
                     }
                     if (Array.isArray(rawValue) || (rawValue && typeof rawValue === 'object')) {
-                        values[key] = rawValue; // السماح للمصفوفات بالمرور (مهم جداً للـ items)
+                        values[key] = rawValue;
                         continue;
                     }
                     errors.push(`Event param value type is not supported: ${key}`);
@@ -113,8 +113,6 @@
                 previousParamKeys.forEach((key) => {
                     if (!(key in nextParams)) flushParams[key] = undefined;
                 });
-
-                // قائمة بأحداث الـ Ecommerce القياسية في GA4
                 const ecommerceEvents = [
                     'view_item', 'view_item_list', 'select_item', 'add_to_cart',
                     'remove_from_cart', 'view_cart', 'begin_checkout',
@@ -129,12 +127,9 @@
                 };
 
                 if (isEcommerce) {
-                    // تنظيف الـ Data Layer من أي أحداث Ecommerce سابقة (توصية رسمية من جوجل)
                     window.dataLayer.push({ ecommerce: null });
 
                     pushPayload.ecommerce = { ...nextParams };
-
-                    // تصحيح تلقائي في حال تم إرسال item بدلاً من items من الباك إند
                     if (pushPayload.ecommerce.item && !pushPayload.ecommerce.items) {
                         pushPayload.ecommerce.items = Array.isArray(pushPayload.ecommerce.item)
                             ? pushPayload.ecommerce.item
@@ -142,7 +137,7 @@
                         delete pushPayload.ecommerce.item;
                     }
                 } else {
-                    pushPayload.ecommerce = null; // للأحداث العادية غير التجارية
+                    pushPayload.ecommerce = null;
                     Object.assign(pushPayload, nextParams);
                 }
 
