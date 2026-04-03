@@ -5,12 +5,13 @@
 [![GitHub Code Style Action Status](https://img.shields.io/github/actions/workflow/status/eg-mohamed/laravel-ga4-events/fix-php-code-style-issues.yml?branch=main&label=code%20style&style=flat-square)](https://github.com/eg-mohamed/laravel-ga4-events/actions?query=workflow%3A%22Fix+PHP+code+style+issues%22+branch%3Amain)
 [![Total Downloads](https://img.shields.io/packagist/dt/eg-mohamed/laravel-ga4-events.svg?style=flat-square)](https://packagist.org/packages/eg-mohamed/laravel-ga4-events)
 
-Push events to Google Tag Manager's `dataLayer` from Laravel, Livewire, and plain JavaScript through one unified bridge. The package injects the GTM snippet, validates payloads, and provides browser-side debug output through `console.log`.
+Push events to Google Tag Manager's `dataLayer` and Meta Pixel from Laravel, Livewire, and plain JavaScript through one unified bridge. The package injects the tracking snippets, validates payloads, and provides browser-side debug output through `console.log`.
 
 ## Features
 
 - Push events to `window.dataLayer` for GTM to handle
 - Auto-injects the GTM container snippet
+- Auto-injects the Meta Pixel base snippet
 - Client-side payload validation before pushing
 - Works from JavaScript, DOM custom events, and Livewire
 - Blade component and directive for easy layout injection
@@ -42,6 +43,13 @@ GTM_CONTAINER_ID=GTM-XXXXXXX
 GTM_EVENTS_ENABLED=true
 ```
 
+Optional Meta Pixel support:
+
+```dotenv
+META_PIXEL_ID=123456789012345
+META_PIXEL_INJECT_SCRIPT=true
+```
+
 2) Inject the bridge once in your layout (before `</body>`):
 
 ```blade
@@ -64,7 +72,7 @@ window.GTMEvents.track('purchase_started', {
 })
 ```
 
-GTM receives `{event: 'purchase_started', currency: 'USD', value: 99.95, item_count: 2}` in `dataLayer`.
+GTM receives `{event: 'purchase_started', currency: 'USD', value: 99.95, item_count: 2}` in `dataLayer`. If Meta Pixel is configured, the same payload is also sent through `fbq`, using `track` for standard Meta events and `trackCustom` for custom ones.
 
 ## Livewire Usage
 
@@ -131,6 +139,28 @@ return [
     'enabled' => (bool) env('GTM_EVENTS_ENABLED', true),
     'container_id' => env('GTM_CONTAINER_ID'),
     'inject_gtm_script' => (bool) env('GTM_EVENTS_INJECT_SCRIPT', true),
+    'meta_pixel_id' => env('META_PIXEL_ID'),
+    'inject_meta_pixel_script' => (bool) env('META_PIXEL_INJECT_SCRIPT', true),
+    'meta_pixel_event_map' => [],
+    'meta_pixel_standard_events' => [
+        'AddPaymentInfo',
+        'AddToCart',
+        'AddToWishlist',
+        'CompleteRegistration',
+        'Contact',
+        'CustomizeProduct',
+        'Donate',
+        'FindLocation',
+        'InitiateCheckout',
+        'Lead',
+        'Purchase',
+        'Schedule',
+        'Search',
+        'StartTrial',
+        'SubmitApplication',
+        'Subscribe',
+        'ViewContent',
+    ],
     'event_bus_name' => env('GTM_EVENTS_EVENT_BUS_NAME', 'gtm:event'),
     'livewire_event_name' => env('GTM_EVENTS_LIVEWIRE_EVENT_NAME', 'gtm-event'),
     'global_js_object' => env('GTM_EVENTS_GLOBAL_JS_OBJECT', 'GTMEvents'),
@@ -146,6 +176,20 @@ return [
     'console_prefix' => env('GTM_EVENTS_CONSOLE_PREFIX', '[GTM Events]'),
 ];
 ```
+
+### Meta Pixel event mapping
+
+Map your existing event names to Meta standard events when needed:
+
+```php
+'meta_pixel_event_map' => [
+    'purchase_completed' => 'Purchase',
+    'checkout_started' => 'InitiateCheckout',
+    'product_viewed' => 'ViewContent',
+],
+```
+
+When the mapped event name matches one of `meta_pixel_standard_events`, the package sends it with `fbq('track', ...)`; otherwise it falls back to `fbq('trackCustom', ...)`.
 
 ## Debug Mode
 
@@ -167,7 +211,7 @@ Example console output:
 php artisan gtm-events:check
 ```
 
-Validates that the package is enabled and the container ID is set.
+Validates that the package is enabled and shows the current GTM and Meta Pixel identifiers.
 
 ## Skip Auto Injection
 

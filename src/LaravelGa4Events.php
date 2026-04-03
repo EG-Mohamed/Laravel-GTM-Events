@@ -32,6 +32,13 @@ class LaravelGa4Events
         return $containerId;
     }
 
+    public function metaPixelId(): ?string
+    {
+        $metaPixelId = trim((string) ($this->config['meta_pixel_id'] ?? ''));
+
+        return $metaPixelId !== '' ? $metaPixelId : null;
+    }
+
     public function track(string $name, array $params = []): array
     {
         return $this->validator()->validate([
@@ -51,6 +58,10 @@ class LaravelGa4Events
             'enabled' => $this->enabled(),
             'containerId' => $this->containerId(),
             'injectGtmScript' => (bool) ($this->config['inject_gtm_script'] ?? true),
+            'metaPixelId' => $this->metaPixelId(),
+            'injectMetaPixelScript' => (bool) ($this->config['inject_meta_pixel_script'] ?? true),
+            'metaPixelEventMap' => $this->metaPixelEventMap(),
+            'metaPixelStandardEvents' => $this->metaPixelStandardEvents(),
             'eventBusName' => (string) ($this->config['event_bus_name'] ?? 'gtm:event'),
             'livewireEventName' => (string) ($this->config['livewire_event_name'] ?? 'gtm-event'),
             'globalJsObject' => (string) ($this->config['global_js_object'] ?? 'GTMEvents'),
@@ -70,5 +81,39 @@ class LaravelGa4Events
     private function strictValidation(): bool
     {
         return (bool) ($this->config['strict_validation'] ?? false);
+    }
+
+    private function metaPixelEventMap(): array
+    {
+        $eventMap = $this->config['meta_pixel_event_map'] ?? [];
+
+        if (! is_array($eventMap)) {
+            return [];
+        }
+
+        return collect($eventMap)
+            ->filter(fn (mixed $value, mixed $key): bool => is_string($key) && is_string($value))
+            ->mapWithKeys(fn (string $value, string $key): array => [trim($key) => trim($value)])
+            ->filter(fn (string $value, string $key): bool => $key !== '' && $value !== '')
+            ->all();
+    }
+
+    private function metaPixelStandardEvents(): array
+    {
+        $standardEvents = $this->config['meta_pixel_standard_events'] ?? [];
+
+        if (! is_array($standardEvents)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(function (mixed $event): ?string {
+            if (! is_string($event)) {
+                return null;
+            }
+
+            $event = trim($event);
+
+            return $event !== '' ? $event : null;
+        }, $standardEvents)));
     }
 }

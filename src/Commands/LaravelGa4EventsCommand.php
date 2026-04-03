@@ -25,6 +25,7 @@ class LaravelGa4EventsCommand extends Command
         $this->line((string) __('GTM events package status'));
         $this->line((string) __('Enabled: :value', ['value' => $frontend['enabled'] ? 'yes' : 'no']));
         $this->line((string) __('Container ID: :value', ['value' => $frontend['containerId'] ?? 'null']));
+        $this->line((string) __('Meta Pixel ID: :value', ['value' => $frontend['metaPixelId'] ?? 'null']));
         $this->line((string) __('Event bus: :value', ['value' => $frontend['eventBusName']]));
         $this->line((string) __('Livewire event: :value', ['value' => $frontend['livewireEventName']]));
         $this->line((string) __('Debug mode: :value', ['value' => $frontend['debug'] ? 'yes' : 'no']));

@@ -1,11 +1,394 @@
 @if ($ga4Config['enabled'])
-    @if ($ga4Config['injectGtmScript'] && $ga4Config['containerId'])
-        <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','{{ $ga4Config['containerId'] }}');</script>
+    @if ($ga4Config['injectMetaPixelScript'] && $ga4Config['metaPixelId'])
+        <noscript>
+            <img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id={{ $ga4Config['metaPixelId'] }}&ev=PageView&noscript=1" alt="" />
+        </noscript>
     @endif
 
     <script id="gtm-events-config" type="application/json">{!! json_encode($ga4Config, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
 
     <script>
-        (()=>{const e=(()=>{const e=document.getElementById("gtm-events-config");if(!e)return{};try{return JSON.parse(e.textContent||"{}")}catch(e){return{}}})();window.dataLayer=window.dataLayer||[];let t=new Set;const a=(t,a,n=null)=>{if(!e.debug)return;const r=[e.consolePrefix||"[GTM Events]",`[${t}]`,a];null===n?console.log(...r):console.log(...r,n)},n=e=>e?Array.isArray(e)?1===e.length&&e[0]&&"object"==typeof e[0]?e[0]:{}:"object"!=typeof e?{}:"name"in e||"params"in e?e:"payload"in e&&e.payload&&"object"==typeof e.payload?e.payload:"0"in e&&e[0]&&"object"==typeof e[0]?e[0]:e:{},r=t=>{const a=[],n="string"!=typeof(r=t&&t.name?t.name:"")?"":r.trim();var r;const o=Number(e.maxEventNameLength||40),i=String(e.allowedNamePattern||"").replace(/^\//,"").replace(/\/[gimsuy]*$/,""),s=new RegExp(i||"^[a-zA-Z][a-zA-Z0-9_]*$");n.length||a.push("Event name is required."),n.length>o&&a.push("Event name exceeds max allowed length."),n.length&&!s.test(n)&&a.push("Event name does not match allowed pattern.");const m=t&&t.params?t.params:{},{values:c,errors:l}=(t=>{if(null===t||"object"!=typeof t||Array.isArray(t))return{values:{},errors:["Event params must be an object."]};const a=Number(e.maxParams||25),n=Number(e.maxParamKeyLength||40),r=Number(e.maxParamValueLength||100),o=[],i=Object.entries(t),s=i.slice(0,a),m={};i.length>a&&o.push("Event params exceed max allowed count.");for(const[e,t]of s){const a=String(e).trim().replace(/\s+/g,"_");a.length?a.length>n?o.push(`Event param key exceeds max length: ${a}`):"string"!=typeof t?["number","boolean"].includes(typeof t)||null===t||Array.isArray(t)||t&&"object"==typeof t?m[a]=t:o.push(`Event param value type is not supported: ${a}`):(m[a]=t.slice(0,r),t.length>r&&o.push(`Event param value was truncated: ${a}`)):o.push("Event param key cannot be empty.")}return{values:m,errors:o}})(m);return a.push(...l),{valid:0===a.length,errors:a,payload:{name:n,params:c}}},o=(o,i="manual")=>{const s=n(o),m=r(s);return(m.valid||(a("ERROR",`Invalid GTM payload from ${i}.`,m.errors),!0!==e.dropInvalidEvents))&&(!0!==e.strictValidation||m.valid)?(((e,n)=>{const r=e&&e.params&&"object"==typeof e.params?e.params:{},o={};t.forEach((e=>{e in r||(o[e]=void 0)}));const i=["view_item","view_item_list","select_item","add_to_cart","remove_from_cart","view_cart","begin_checkout","add_shipping_info","add_payment_info","purchase","refund"].includes(e.name);let s={event:e.name,...o};i?(window.dataLayer.push({ecommerce:null}),s.ecommerce={...r},s.ecommerce.item&&!s.ecommerce.items&&(s.ecommerce.items=Array.isArray(s.ecommerce.item)?s.ecommerce.item:[s.ecommerce.item],delete s.ecommerce.item)):(s.ecommerce=null,Object.assign(s,r)),window.dataLayer.push(s),t=new Set(Object.keys(r)),a("INFO",`Event pushed to dataLayer from ${n}.`,s)})(m.payload,i),{ok:m.valid,sent:!0,errors:m.errors}):{ok:!1,sent:!1,errors:m.errors}};window.addEventListener(e.eventBusName||"gtm:event",(e=>{o(e&&e.detail?e.detail:{},"dom")})),document.addEventListener("livewire:init",(()=>{window.Livewire&&"function"==typeof window.Livewire.on?(window.Livewire.on(e.livewireEventName||"gtm-event",(e=>{o(n(e),"livewire")})),a("INFO","Livewire listener registered.",e.livewireEventName||"gtm-event")):a("WARN","Livewire is not available for event subscription.")})),window[e.globalJsObject||"GTMEvents"]={track:(e,t={})=>o({name:e,params:t},"api"),dispatch:o,config:e},a("INFO","GTM bridge initialized.",e),e.containerId||a("WARN","Container ID is missing. Auto GTM script injection is disabled.")})();
+        (() => {
+            const readConfig = () => {
+                const element = document.getElementById('gtm-events-config');
+
+                if (! element) {
+                    return {};
+                }
+
+                try {
+                    return JSON.parse(element.textContent || '{}');
+                } catch {
+                    return {};
+                }
+            };
+
+            const config = readConfig();
+
+            window.dataLayer = window.dataLayer || [];
+
+            const livewireListeners = new Set();
+            const metaPixelEventMap = typeof config.metaPixelEventMap === 'object' && config.metaPixelEventMap !== null
+                ? config.metaPixelEventMap
+                : {};
+            const metaPixelStandardEvents = new Set(Array.isArray(config.metaPixelStandardEvents) ? config.metaPixelStandardEvents : []);
+
+            const debug = (level, message, context = null) => {
+                if (! config.debug) {
+                    return;
+                }
+
+                const payload = [config.consolePrefix || '[GTM Events]', `[${level}]`, message];
+
+                if (context === null) {
+                    console.log(...payload);
+
+                    return;
+                }
+
+                console.log(...payload, context);
+            };
+
+            const bootstrapGtmScript = () => {
+                if (! config.injectGtmScript || ! config.containerId || window.__gtmEventsScriptLoaded) {
+                    return;
+                }
+
+                window.__gtmEventsScriptLoaded = true;
+                window.dataLayer.push({
+                    'gtm.start': new Date().getTime(),
+                    event: 'gtm.js',
+                });
+
+                const firstScript = document.getElementsByTagName('script')[0];
+                const script = document.createElement('script');
+
+                script.async = true;
+                script.src = `https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(config.containerId)}`;
+
+                if (firstScript?.parentNode) {
+                    firstScript.parentNode.insertBefore(script, firstScript);
+
+                    return;
+                }
+
+                (document.head || document.body || document.documentElement).appendChild(script);
+            };
+
+            const bootstrapMetaPixel = () => {
+                if (! config.injectMetaPixelScript || ! config.metaPixelId || window.__gtmEventsMetaPixelLoaded) {
+                    return;
+                }
+
+                window.__gtmEventsMetaPixelLoaded = true;
+
+                ((f, b, e, v, n, t, s) => {
+                    if (f.fbq) {
+                        return;
+                    }
+
+                    n = f.fbq = (...args) => {
+                        if (n.callMethod) {
+                            n.callMethod.apply(n, args);
+
+                            return;
+                        }
+
+                        n.queue.push(args);
+                    };
+
+                    if (! f._fbq) {
+                        f._fbq = n;
+                    }
+
+                    n.push = n;
+                    n.loaded = true;
+                    n.version = '2.0';
+                    n.queue = [];
+                    t = b.createElement(e);
+                    t.async = true;
+                    t.src = v;
+                    s = b.getElementsByTagName(e)[0];
+
+                    if (s?.parentNode) {
+                        s.parentNode.insertBefore(t, s);
+
+                        return;
+                    }
+
+                    (b.head || b.body || b.documentElement).appendChild(t);
+                })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
+
+                window.fbq('init', config.metaPixelId);
+                window.fbq('track', 'PageView');
+            };
+
+            const pattern = (() => {
+                const source = String(config.allowedNamePattern || '').trim();
+
+                if (source === '') {
+                    return /^[a-zA-Z][a-zA-Z0-9_]*$/;
+                }
+
+                const match = source.match(/^\/(.*)\/([gimsuy]*)$/);
+
+                try {
+                    if (match) {
+                        return new RegExp(match[1], match[2]);
+                    }
+
+                    return new RegExp(source);
+                } catch {
+                    return /^[a-zA-Z][a-zA-Z0-9_]*$/;
+                }
+            })();
+
+            const normalizeIncomingPayload = (payload) => {
+                if (! payload) {
+                    return {};
+                }
+
+                if (Array.isArray(payload)) {
+                    return payload.length === 1 && payload[0] && typeof payload[0] === 'object'
+                        ? payload[0]
+                        : {};
+                }
+
+                if (typeof payload !== 'object') {
+                    return {};
+                }
+
+                if ('name' in payload || 'params' in payload) {
+                    return payload;
+                }
+
+                if ('payload' in payload && payload.payload && typeof payload.payload === 'object') {
+                    return payload.payload;
+                }
+
+                if ('0' in payload && payload[0] && typeof payload[0] === 'object') {
+                    return payload[0];
+                }
+
+                return payload;
+            };
+
+            const normalizeValue = (value, errors, depth = 0) => {
+                const maxDepth = Number(config.maxParamNesting || 4);
+                const maxLength = Number(config.maxParamValueLength || 100);
+
+                if (typeof value === 'string') {
+                    if (value.length > maxLength) {
+                        errors.push('Event param value exceeds the allowed length.');
+
+                        return value.slice(0, maxLength);
+                    }
+
+                    return value;
+                }
+
+                if (typeof value === 'number' || typeof value === 'boolean' || value === null) {
+                    return value;
+                }
+
+                if (Array.isArray(value)) {
+                    if (depth >= maxDepth) {
+                        errors.push('Event param nesting exceeds the allowed depth.');
+
+                        return [];
+                    }
+
+                    return value.map((item) => normalizeValue(item, errors, depth + 1));
+                }
+
+                if (typeof value === 'object') {
+                    if (depth >= maxDepth) {
+                        errors.push('Event param nesting exceeds the allowed depth.');
+
+                        return {};
+                    }
+
+                    return Object.entries(value).reduce((carry, [key, item]) => {
+                        const normalizedKey = String(key).trim().replace(/\s+/g, '_');
+
+                        carry[normalizedKey] = normalizeValue(item, errors, depth + 1);
+
+                        return carry;
+                    }, {});
+                }
+
+                errors.push('Event param value type is not supported.');
+
+                return null;
+            };
+
+            const validatePayload = (payload) => {
+                const errors = [];
+                const name = typeof payload?.name === 'string' ? payload.name.trim() : '';
+                const maxEventNameLength = Number(config.maxEventNameLength || 40);
+
+                if (name === '') {
+                    errors.push('Event name is required.');
+                }
+
+                if (name.length > maxEventNameLength) {
+                    errors.push('Event name exceeds the allowed length.');
+                }
+
+                if (name !== '' && ! pattern.test(name)) {
+                    errors.push('Event name does not match the allowed pattern.');
+                }
+
+                const rawParams = payload?.params ?? {};
+
+                if (rawParams === null || typeof rawParams !== 'object' || Array.isArray(rawParams)) {
+                    errors.push('Event params must be an object.');
+
+                    return {
+                        valid: errors.length === 0,
+                        errors,
+                        payload: {
+                            name,
+                            params: {},
+                        },
+                    };
+                }
+
+                const maxParams = Number(config.maxParams || 25);
+                const maxParamKeyLength = Number(config.maxParamKeyLength || 40);
+                const params = {};
+
+                Object.entries(rawParams).slice(0, maxParams).forEach(([key, value]) => {
+                    const normalizedKey = String(key).trim().replace(/\s+/g, '_');
+
+                    if (normalizedKey === '') {
+                        errors.push('Event param key cannot be empty.');
+
+                        return;
+                    }
+
+                    if (normalizedKey.length > maxParamKeyLength) {
+                        errors.push('Event param key exceeds the allowed length.');
+
+                        return;
+                    }
+
+                    const normalizedValue = normalizeValue(value, errors);
+
+                    if (normalizedValue === null && value !== null) {
+                        return;
+                    }
+
+                    params[normalizedKey] = normalizedValue;
+                });
+
+                if (Object.keys(rawParams).length > maxParams) {
+                    errors.push('Event params exceed the maximum allowed count.');
+                }
+
+                return {
+                    valid: errors.length === 0,
+                    errors,
+                    payload: {
+                        name,
+                        params,
+                    },
+                };
+            };
+
+            const dispatchToDataLayer = (payload, source) => {
+                window.dataLayer.push({
+                    event: payload.name,
+                    ...payload.params,
+                });
+
+                debug('INFO', `Event pushed to dataLayer from ${source}.`, payload);
+            };
+
+            const dispatchToMetaPixel = (payload, source) => {
+                if (typeof window.fbq !== 'function') {
+                    if (config.metaPixelId) {
+                        debug('ERROR', `Meta Pixel is unavailable for ${source}.`, payload);
+                    }
+
+                    return;
+                }
+
+                const mappedEventName = typeof metaPixelEventMap[payload.name] === 'string' && metaPixelEventMap[payload.name].trim() !== ''
+                    ? metaPixelEventMap[payload.name].trim()
+                    : payload.name;
+                const method = metaPixelStandardEvents.has(mappedEventName) ? 'track' : 'trackCustom';
+
+                window.fbq(method, mappedEventName, payload.params);
+                debug('INFO', `Event pushed to Meta Pixel from ${source}.`, {
+                    name: mappedEventName,
+                    method,
+                    params: payload.params,
+                });
+            };
+
+            const dispatch = (payload, source = 'manual') => {
+                const normalizedPayload = normalizeIncomingPayload(payload);
+                const validatedPayload = validatePayload(normalizedPayload);
+
+                if (! validatedPayload.valid) {
+                    debug('ERROR', `Invalid GTM payload from ${source}.`, validatedPayload.errors);
+
+                    if (config.dropInvalidEvents !== false) {
+                        return {
+                            ok: false,
+                            errors: validatedPayload.errors,
+                        };
+                    }
+                }
+
+                dispatchToDataLayer(validatedPayload.payload, source);
+                dispatchToMetaPixel(validatedPayload.payload, source);
+
+                return {
+                    ok: true,
+                    errors: validatedPayload.errors,
+                    payload: validatedPayload.payload,
+                };
+            };
+
+            const track = (name, params = {}) => dispatch({ name, params }, 'api');
+
+            const globalObjectName = String(config.globalJsObject || 'GTMEvents').trim() || 'GTMEvents';
+
+            bootstrapGtmScript();
+            bootstrapMetaPixel();
+
+            window[globalObjectName] = {
+                track,
+                dispatch,
+                config,
+            };
+
+            if (config.eventBusName) {
+                window.addEventListener(config.eventBusName, (event) => {
+                    dispatch(event.detail, 'dom');
+                });
+            }
+
+            const bindLivewireListener = () => {
+                if (! config.livewireEventName || livewireListeners.has(config.livewireEventName)) {
+                    return;
+                }
+
+                if (! window.Livewire || typeof window.Livewire.on !== 'function') {
+                    return;
+                }
+
+                livewireListeners.add(config.livewireEventName);
+                window.Livewire.on(config.livewireEventName, (payload) => {
+                    dispatch(payload, 'livewire');
+                });
+            };
+
+            document.addEventListener('livewire:init', bindLivewireListener);
+            bindLivewireListener();
+            debug('INFO', 'GTM bridge initialized.', config);
+        })();
     </script>
 @endif
