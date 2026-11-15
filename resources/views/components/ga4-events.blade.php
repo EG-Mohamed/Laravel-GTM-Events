@@ -32,6 +32,89 @@
                 ? config.metaPixelEventMap
                 : {};
             const metaPixelStandardEvents = new Set(Array.isArray(config.metaPixelStandardEvents) ? config.metaPixelStandardEvents : []);
+            const eventMap = typeof config.eventMap === 'object' && config.eventMap !== null ? config.eventMap : {};
+            const consentGranted = config.consent !== false;
+
+            const generateEventId = () => {
+                if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+                    return window.crypto.randomUUID();
+                }
+
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (character) => {
+                    const random = Math.random() * 16 | 0;
+
+                    return (character === 'x' ? random : (random & 0x3 | 0x8)).toString(16);
+                });
+            };
+
+            const resolveDestinationName = (name, destination) => {
+                const mapped = eventMap[name] ? eventMap[name][destination] : undefined;
+
+                if (mapped === false) {
+                    return null;
+                }
+
+                if (typeof mapped === 'string' && mapped.trim() !== '') {
+                    return mapped.trim();
+                }
+
+                if (destination === 'meta' && typeof metaPixelEventMap[name] === 'string' && metaPixelEventMap[name].trim() !== '') {
+                    return metaPixelEventMap[name].trim();
+                }
+
+                return name;
+            };
+
+            const toMetaParams = (params) => {
+                const dropped = ['page_path', 'page_location', 'debug_mode', 'engagement_time_msec', 'session_id', 'event_id'];
+                const output = {};
+
+                Object.entries(params || {}).forEach(([key, value]) => {
+                    if (dropped.includes(key) || value === null || value === '' || typeof value === 'object') {
+                        return;
+                    }
+
+                    output[key] = value;
+                });
+
+                if (params.transaction_id) {
+                    output.order_id = String(params.transaction_id);
+                }
+
+                if (params.item_name) {
+                    output.content_name = String(params.item_name);
+                }
+
+                if (params.item_category) {
+                    output.content_category = String(params.item_category);
+                }
+
+                if (typeof params.currency === 'string') {
+                    output.currency = params.currency.toUpperCase();
+                }
+
+                const items = Array.isArray(params.items) ? params.items.filter((item) => item && typeof item === 'object' && item.item_id !== undefined) : [];
+
+                if (items.length > 0) {
+                    output.contents = items.map((item) => {
+                        const content = { id: String(item.item_id), quantity: Number(item.quantity || 1) };
+
+                        if (item.price !== undefined) {
+                            content.item_price = Number(item.price);
+                        }
+
+                        return content;
+                    });
+                    output.content_ids = output.contents.map((content) => content.id);
+                    output.content_type = 'product';
+                    output.num_items = output.contents.reduce((total, content) => total + content.quantity, 0);
+                } else if (params.item_id !== undefined) {
+                    output.content_ids = [String(params.item_id)];
+                    output.content_type = 'product';
+                }
+
+                return output;
+            };
 
             const debug = (level, message, context = null) => {
                 if (! config.debug) {
@@ -76,7 +159,7 @@
             };
 
             const bootstrapMetaPixel = () => {
-                if (! config.injectMetaPixelScript || ! config.metaPixelId || window.__gtmEventsMetaPixelLoaded) {
+                if (! consentGranted || ! config.injectMetaPixelScript || ! config.metaPixelId || window.__gtmEventsMetaPixelLoaded) {
                     return;
                 }
 
@@ -119,8 +202,17 @@
                     (b.head || b.body || b.documentElement).appendChild(t);
                 })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
 
-                window.fbq('init', config.metaPixelId);
-                window.fbq('track', 'PageView');
+                const advancedMatching = config.metaAdvancedMatching && typeof config.metaAdvancedMatching === 'object'
+                    ? config.metaAdvancedMatching
+                    : {};
+
+                if (Object.keys(advancedMatching).length > 0) {
+                    window.fbq('init', config.metaPixelId, advancedMatching);
+                } else {
+                    window.fbq('init', config.metaPixelId);
+                }
+
+                window.fbq('track', 'PageView', {}, { eventID: generateEventId() });
             };
 
             const pattern = (() => {
@@ -296,16 +388,29 @@
                 };
             };
 
-            const dispatchToDataLayer = (payload, source) => {
+            const dispatchToDataLayer = (payload, eventId, source) => {
+                const ga4Name = resolveDestinationName(payload.name, 'ga4');
+
+                if (ga4Name === null) {
+                    return;
+                }
+
                 window.dataLayer.push({
-                    event: payload.name,
+                    event: ga4Name,
+                    event_id: eventId,
                     ...payload.params,
                 });
 
-                debug('INFO', `Event pushed to dataLayer from ${source}.`, payload);
+                debug('INFO', `Event pushed to dataLayer from ${source}.`, { ...payload, name: ga4Name, event_id: eventId });
             };
 
-            const dispatchToMetaPixel = (payload, source) => {
+            const dispatchToMetaPixel = (payload, eventId, source) => {
+                const mappedEventName = resolveDestinationName(payload.name, 'meta');
+
+                if (mappedEventName === null) {
+                    return;
+                }
+
                 if (typeof window.fbq !== 'function') {
                     if (config.metaPixelId) {
                         debug('ERROR', `Meta Pixel is unavailable for ${source}.`, payload);
@@ -314,16 +419,50 @@
                     return;
                 }
 
-                const mappedEventName = typeof metaPixelEventMap[payload.name] === 'string' && metaPixelEventMap[payload.name].trim() !== ''
-                    ? metaPixelEventMap[payload.name].trim()
-                    : payload.name;
                 const method = metaPixelStandardEvents.has(mappedEventName) ? 'track' : 'trackCustom';
+                const metaParams = toMetaParams(payload.params);
 
-                window.fbq(method, mappedEventName, payload.params);
+                window.fbq(method, mappedEventName, metaParams, { eventID: eventId });
                 debug('INFO', `Event pushed to Meta Pixel from ${source}.`, {
                     name: mappedEventName,
                     method,
-                    params: payload.params,
+                    eventID: eventId,
+                    params: metaParams,
+                });
+            };
+
+            const dispatchToServer = (payload, eventId, source) => {
+                if (! consentGranted || ! config.collectUrl || typeof window.fetch !== 'function') {
+                    return;
+                }
+
+                const headers = {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                };
+                const metaToken = document.querySelector('meta[name="csrf-token"]');
+                const csrfToken = (metaToken && metaToken.getAttribute('content')) || config.csrfToken;
+
+                if (csrfToken) {
+                    headers['X-CSRF-TOKEN'] = csrfToken;
+                }
+
+                window.fetch(config.collectUrl, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    keepalive: true,
+                    headers,
+                    body: JSON.stringify({
+                        name: payload.name,
+                        event_id: eventId,
+                        params: payload.params,
+                        url: window.location.href,
+                    }),
+                }).then(() => {
+                    debug('INFO', `Event relayed to server from ${source}.`, { name: payload.name, event_id: eventId });
+                }).catch(() => {
+                    debug('ERROR', `Server relay failed from ${source}.`, { name: payload.name, event_id: eventId });
                 });
             };
 
@@ -342,17 +481,31 @@
                     }
                 }
 
-                dispatchToDataLayer(validatedPayload.payload, source);
-                dispatchToMetaPixel(validatedPayload.payload, source);
+                const eventId = typeof normalizedPayload.event_id === 'string' && normalizedPayload.event_id.trim() !== ''
+                    ? normalizedPayload.event_id.trim()
+                    : generateEventId();
+
+                dispatchToDataLayer(validatedPayload.payload, eventId, source);
+                dispatchToMetaPixel(validatedPayload.payload, eventId, source);
+
+                if (normalizedPayload.server === true) {
+                    dispatchToServer(validatedPayload.payload, eventId, source);
+                }
 
                 return {
                     ok: true,
                     errors: validatedPayload.errors,
                     payload: validatedPayload.payload,
+                    eventId,
                 };
             };
 
-            const track = (name, params = {}) => dispatch({ name, params }, 'api');
+            const track = (name, params = {}, options = {}) => dispatch({
+                name,
+                params,
+                event_id: options && typeof options.eventId === 'string' ? options.eventId : undefined,
+                server: Boolean(options && options.server),
+            }, 'api');
 
             const globalObjectName = String(config.globalJsObject || 'GTMEvents').trim() || 'GTMEvents';
 
@@ -362,8 +515,13 @@
             window[globalObjectName] = {
                 track,
                 dispatch,
+                generateEventId,
                 config,
             };
+
+            (Array.isArray(config.pendingEvents) ? config.pendingEvents : []).forEach((pendingEvent) => {
+                dispatch(pendingEvent, 'server-queue');
+            });
 
             if (config.eventBusName) {
                 window.addEventListener(config.eventBusName, (event) => {

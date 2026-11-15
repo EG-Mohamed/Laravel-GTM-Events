@@ -1,11 +1,15 @@
 <?php
 
+use MohamedSaid\LaravelGa4Events\Drivers\Ga4MeasurementProtocolDriver;
+use MohamedSaid\LaravelGa4Events\Drivers\MetaConversionsApiDriver;
+
 return [
     'enabled' => (bool) env('GTM_EVENTS_ENABLED', true),
     'container_id' => env('GTM_CONTAINER_ID'),
     'inject_gtm_script' => (bool) env('GTM_EVENTS_INJECT_SCRIPT', true),
     'meta_pixel_id' => env('META_PIXEL_ID'),
     'inject_meta_pixel_script' => (bool) env('META_PIXEL_INJECT_SCRIPT', true),
+    'meta_pixel_advanced_matching' => (bool) env('META_PIXEL_ADVANCED_MATCHING', true),
     'meta_pixel_event_map' => [],
     'meta_pixel_standard_events' => [
         'AddPaymentInfo',
@@ -26,6 +30,69 @@ return [
         'Subscribe',
         'ViewContent',
     ],
+    'event_map' => [
+        'purchase' => ['meta' => 'Purchase'],
+        'begin_checkout' => ['meta' => 'InitiateCheckout'],
+        'add_payment_info' => ['meta' => 'AddPaymentInfo'],
+        'add_to_cart' => ['meta' => 'AddToCart'],
+        'add_to_wishlist' => ['meta' => 'AddToWishlist'],
+        'sign_up' => ['meta' => 'CompleteRegistration'],
+        'generate_lead' => ['meta' => 'Lead'],
+        'view_item' => ['meta' => 'ViewContent'],
+        'search' => ['meta' => 'Search'],
+        'start_trial' => ['meta' => 'StartTrial'],
+        'subscribe' => ['meta' => 'Subscribe'],
+        'contact' => ['meta' => 'Contact'],
+        'schedule' => ['meta' => 'Schedule'],
+        'exception' => ['meta' => false],
+    ],
+    'meta' => [
+        'capi' => [
+            'enabled' => (bool) env('META_CAPI_ENABLED', true),
+            'access_token' => env('META_CAPI_ACCESS_TOKEN'),
+            'test_event_code' => env('META_CAPI_TEST_EVENT_CODE'),
+            'graph_url' => env('META_CAPI_GRAPH_URL', 'https://graph.facebook.com'),
+            'graph_version' => env('META_CAPI_GRAPH_VERSION', 'v23.0'),
+            'action_source' => env('META_CAPI_ACTION_SOURCE', 'website'),
+        ],
+    ],
+    'ga4' => [
+        'mp' => [
+            'enabled' => (bool) env('GA4_MP_ENABLED', true),
+            'measurement_id' => env('GA4_MEASUREMENT_ID'),
+            'api_secret' => env('GA4_API_SECRET'),
+            'endpoint' => env('GA4_MP_ENDPOINT', 'https://www.google-analytics.com'),
+            'debug' => (bool) env('GA4_MP_DEBUG', false),
+            'skip_browser_mirrored_events' => (bool) env('GA4_MP_SKIP_BROWSER_MIRRORED', true),
+        ],
+    ],
+    'server' => [
+        'enabled' => (bool) env('GTM_EVENTS_SERVER_ENABLED', true),
+        'connection' => env('GTM_EVENTS_QUEUE_CONNECTION'),
+        'queue' => env('GTM_EVENTS_QUEUE'),
+        'tries' => (int) env('GTM_EVENTS_QUEUE_TRIES', 5),
+        'backoff' => [10, 60, 300, 900],
+        'timeout' => (int) env('GTM_EVENTS_HTTP_TIMEOUT', 10),
+        'store_events' => (bool) env('GTM_EVENTS_STORE_SERVER_EVENTS', true),
+        'drivers' => [
+            MetaConversionsApiDriver::class,
+            Ga4MeasurementProtocolDriver::class,
+        ],
+    ],
+    'context' => [
+        'capture' => (bool) env('GTM_EVENTS_CAPTURE_CONTEXT', true),
+        'set_first_party_cookies' => (bool) env('GTM_EVENTS_SET_FIRST_PARTY_COOKIES', true),
+        'cookie_lifetime_days' => (int) env('GTM_EVENTS_COOKIE_LIFETIME_DAYS', 90),
+        'identity_guards' => null,
+    ],
+    'collect_endpoint' => [
+        'enabled' => (bool) env('GTM_EVENTS_COLLECT_ENDPOINT', true),
+        'path' => env('GTM_EVENTS_COLLECT_PATH', 'ga4-events/collect'),
+        'middleware' => ['web'],
+        'throttle' => env('GTM_EVENTS_COLLECT_THROTTLE', '60,1'),
+        'allowed_events' => [],
+    ],
+    'consent_resolver' => null,
     'event_bus_name' => env('GTM_EVENTS_EVENT_BUS_NAME', 'gtm:event'),
     'livewire_event_name' => env('GTM_EVENTS_LIVEWIRE_EVENT_NAME', 'gtm-event'),
     'global_js_object' => env('GTM_EVENTS_GLOBAL_JS_OBJECT', 'GTMEvents'),

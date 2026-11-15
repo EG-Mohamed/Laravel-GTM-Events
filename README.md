@@ -16,6 +16,7 @@ Push events to Google Tag Manager's `dataLayer` and Meta Pixel from Laravel, Liv
 - Works from JavaScript, DOM custom events, and Livewire
 - Blade component and directive for easy layout injection
 - Console debug output
+- Server-side Meta Conversions API + GA4 Measurement Protocol with browser/server deduplication
 
 ## Compatibility
 
@@ -190,6 +191,106 @@ Map your existing event names to Meta standard events when needed:
 ```
 
 When the mapped event name matches one of `meta_pixel_standard_events`, the package sends it with `fbq('track', ...)`; otherwise it falls back to `fbq('trackCustom', ...)`.
+
+## Server-side Tracking (v2)
+
+Send the same event from the server to the **Meta Conversions API** and the **GA4 Measurement Protocol**. Every event has an `event_id`, and browser and server use the same one, so Meta deduplicates them. GA4 deduplicates `purchase` by `transaction_id`.
+
+```dotenv
+META_PIXEL_ID=123456789012345
+META_CAPI_ACCESS_TOKEN=EAAB...
+META_CAPI_TEST_EVENT_CODE=TEST12345
+GA4_MEASUREMENT_ID=G-XXXXXXX
+GA4_API_SECRET=xxxxxxxx
+GA4_MP_DEBUG=false
+```
+
+```bash
+php artisan vendor:publish --tag="ga4-events-migrations"
+php artisan migrate
+```
+
+Add the context middleware to every stack that serves pages (the `web` group, plus each Filament panel's `->middleware([...])`):
+
+```php
+$middleware->appendToGroup('web', [
+    \MohamedSaid\LaravelGa4Events\Http\Middleware\CaptureTrackingContext::class,
+]);
+```
+
+Make your user model remember attribution:
+
+```php
+use MohamedSaid\LaravelGa4Events\Concerns\HasTrackingIdentity;
+use MohamedSaid\LaravelGa4Events\Contracts\ProvidesTrackingUserData;
+
+class User extends Authenticatable implements ProvidesTrackingUserData
+{
+    use HasTrackingIdentity;
+
+    public function trackingUserData(): array
+    {
+        return ['external_id' => $this->id, 'email' => $this->email, 'phone' => $this->phone];
+    }
+}
+```
+
+### Sending events
+
+```php
+use MohamedSaid\LaravelGa4Events\Facades\LaravelGa4Events;
+
+LaravelGa4Events::event('purchase')
+    ->eventId('purchase-'.$order->id)
+    ->value($order->total, 'USD')
+    ->transactionId($order->number)
+    ->params(['items' => [['item_id' => 'pro', 'price' => 49, 'quantity' => 1]]])
+    ->for($order->user)
+    ->server()
+    ->browser()
+    ->send();
+```
+
+- `server()` queues one job per driver. Jobs are dispatched after the transaction commits and retried with backoff.
+- `browser()` stores the event in the session. `<x-ga4-events />` fires it on the next page render, so it survives redirects.
+- `for($user)` uses the user's stored attribution (fbp, fbc, ga client id, IP, user agent). It merges the live request context only when that user is the one making the request, so webhooks and admin actions never send the wrong browser data.
+- With no user agent known, Meta events use `action_source=system_generated`.
+
+From Livewire:
+
+```php
+use MohamedSaid\LaravelGa4Events\Livewire\TracksEvents;
+
+$this->trackEvent('begin_checkout', $params, server: true);
+```
+
+From JavaScript (needs `collect_endpoint.allowed_events`):
+
+```js
+GTMEvents.track('add_to_cart', { value: 10, currency: 'USD' }, { server: true });
+GTMEvents.track('purchase', params, { eventId: 'purchase-15' });
+```
+
+### Event names
+
+Use GA4 names. `event_map` translates them per destination, and `false` skips a destination:
+
+```php
+'event_map' => [
+    'purchase' => ['meta' => 'Purchase'],
+    'sign_up' => ['meta' => 'CompleteRegistration'],
+    'exception' => ['meta' => false],
+],
+```
+
+### GA4 duplicates
+
+GA4 does not deduplicate on `event_id`. When an event is also sent from the browser (`browser()`, `trackEvent(..., server: true)`, the collect endpoint), the Measurement Protocol copy is skipped unless it carries a `transaction_id`. To change that, set `ga4.mp.skip_browser_mirrored_events`.
+
+### Delivery log & consent
+
+- Each delivery is stored in `ga4_server_events` (`sent`/`failed`, response code and body). The same `event_id` is never re-sent to a destination once it has been sent.
+- To set consent, point `consent_resolver` at an invokable class that receives the request and returns `bool`. When it returns `false`, nothing is sent, no cookies are set, and the pixel is not loaded.
 
 ## Debug Mode
 
