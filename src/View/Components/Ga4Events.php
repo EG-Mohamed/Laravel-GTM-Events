@@ -13,7 +13,7 @@ class Ga4Events extends Component
     public function render(): View
     {
         return view('ga4-events::components.ga4-events', [
-            'ga4Config' => $this->ga4Events->toFrontendConfig(),
+            'ga4Config' => $this->ga4Events->frontendPayload(),
         ]);
     }
 }
