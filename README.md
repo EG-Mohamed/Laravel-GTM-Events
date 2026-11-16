@@ -244,6 +244,7 @@ OPENAI_PIXEL_ID=px_...
 OPENAI_CAPI_API_KEY=...
 OPENAI_CAPI_VALIDATE_ONLY=false
 OPENAI_SEND_CUSTOM_EVENTS=false
+OPENAI_PIXEL_DEBUG=false
 ```
 
 The `oaiq` pixel is injected once consent is granted. Mapped events go to both the pixel and the Conversions API with the same `event_id`, so OpenAI deduplicates them. `oppref` and `__obref` are captured by `CaptureTrackingContext` and forwarded on server events. To map a custom event, add an `openai` key to its `event_map` entry: a standard type such as `lead_created`, or a custom name. Set it to `false` to skip OpenAI for that event.

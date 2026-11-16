@@ -326,6 +326,7 @@ class LaravelGa4Events
             'metaPixelStandardEvents' => $this->metaPixelStandardEvents(),
             'openAiPixelId' => $this->openAiPixelId(),
             'injectOpenAiPixelScript' => (bool) ($this->config['inject_openai_pixel_script'] ?? true),
+            'openAiPixelDebug' => (bool) ($this->config['openai_pixel_debug'] ?? false),
             'openAiStandardEvents' => EventNameMapper::OPENAI_STANDARD_EVENTS,
             'openAiSendCustomEvents' => (bool) ($this->config['openai_send_custom_events'] ?? false),
             'zeroDecimalCurrencies' => OpenAiEventData::ZERO_DECIMAL_CURRENCIES,

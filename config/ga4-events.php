@@ -14,6 +14,7 @@ return [
     'meta_pixel_event_map' => [],
     'openai_pixel_id' => env('OPENAI_PIXEL_ID'),
     'inject_openai_pixel_script' => (bool) env('OPENAI_PIXEL_INJECT_SCRIPT', true),
+    'openai_pixel_debug' => (bool) env('OPENAI_PIXEL_DEBUG', false),
     'openai_send_custom_events' => (bool) env('OPENAI_SEND_CUSTOM_EVENTS', false),
     'meta_pixel_standard_events' => [
         'AddPaymentInfo',

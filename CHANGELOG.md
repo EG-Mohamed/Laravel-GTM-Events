@@ -2,6 +2,11 @@
 
 All notable changes to `Laravel-Ga4-Events` will be documented in this file.
 
+## 2.1.1 - 2026-11-16
+
+- Fix: OpenAI `page_viewed` now uses data type `contents`, which the `oaiq` SDK requires. Before this, the SDK rejected the call, so test sessions received no events.
+- `OPENAI_PIXEL_DEBUG` / `openai_pixel_debug` passes `debug: true` to `oaiq('init')`.
+
 ## 2.1.0 - 2026-11-16
 
 - OpenAI Ads Conversions API driver (`OpenAiConversionsApiDriver`): sends to `bzr.openai.com/v1/events`, uses OpenAI hashing rules, amounts in minor units, and maps `contents` / `plan_enrollment` / `customer_action` data.

@@ -109,7 +109,7 @@
             };
 
             const toOpenAiData = (type, params) => {
-                const contentsEvents = ['checkout_started', 'contents_viewed', 'items_added', 'order_created'];
+                const contentsEvents = ['checkout_started', 'contents_viewed', 'items_added', 'order_created', 'page_viewed'];
                 const planEvents = ['subscription_created', 'trial_started'];
                 const dataType = contentsEvents.includes(type)
                     ? 'contents'
@@ -142,10 +142,6 @@
                         const itemCurrency = toOpenAiCurrency(item.currency) || currency;
                         const itemAmount = toMinorUnits(item.price, itemCurrency);
                         const content = { id: String(item.item_id), quantity: Math.max(1, parseInt(item.quantity || 1, 10) || 1) };
-
-                        if (item.item_group_id !== undefined && item.item_group_id !== null) {
-                            content.group_id = String(item.item_group_id);
-                        }
 
                         if (typeof item.item_name === 'string' && item.item_name !== '') {
                             content.name = item.item_name;
@@ -355,8 +351,8 @@
                     (d.head || d.body || d.documentElement).appendChild(script);
                 })(window, document, 'script', 'https://bzrcdn.openai.com/sdk/oaiq.min.js');
 
-                window.oaiq('init', { pixelId: config.openAiPixelId });
-                window.oaiq('measure', 'page_viewed', { type: 'customer_action' }, { event_id: generateEventId() });
+                window.oaiq('init', { pixelId: config.openAiPixelId, debug: config.openAiPixelDebug === true });
+                window.oaiq('measure', 'page_viewed', { type: 'contents' }, { event_id: generateEventId() });
             };
 
             const pattern = (() => {

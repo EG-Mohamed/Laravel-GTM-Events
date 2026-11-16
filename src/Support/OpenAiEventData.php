@@ -8,7 +8,7 @@ final class OpenAiEventData
 
     public const THREE_DECIMAL_CURRENCIES = ['BHD', 'IQD', 'JOD', 'KWD', 'LYD', 'OMR', 'TND'];
 
-    private const CONTENTS_EVENTS = ['checkout_started', 'contents_viewed', 'items_added', 'order_created'];
+    private const CONTENTS_EVENTS = ['checkout_started', 'contents_viewed', 'items_added', 'order_created', 'page_viewed'];
 
     private const PLAN_EVENTS = ['subscription_created', 'trial_started'];
 
