@@ -11,6 +11,7 @@ use MohamedSaid\LaravelGa4Events\Exceptions\InvalidGa4ConfigurationException;
 use MohamedSaid\LaravelGa4Events\Jobs\SendServerTrackingEvent;
 use MohamedSaid\LaravelGa4Events\Support\EventNameMapper;
 use MohamedSaid\LaravelGa4Events\Support\Ga4EventValidator;
+use MohamedSaid\LaravelGa4Events\Support\OpenAiEventData;
 use MohamedSaid\LaravelGa4Events\Support\TrackingContext;
 use MohamedSaid\LaravelGa4Events\Support\UserDataNormalizer;
 use Throwable;
@@ -177,6 +178,7 @@ class LaravelGa4Events
                 'user_id' => $normalized['external_id'] ?? null,
                 'meta' => UserDataNormalizer::forMeta($normalized),
                 'ga4' => UserDataNormalizer::forGa4($normalized),
+                'openai' => UserDataNormalizer::forOpenAi($normalized),
             ],
             'consent' => [
                 'ad_user_data' => $consent,
@@ -292,6 +294,13 @@ class LaravelGa4Events
         return $metaPixelId !== '' ? $metaPixelId : null;
     }
 
+    public function openAiPixelId(): ?string
+    {
+        $openAiPixelId = trim((string) ($this->config['openai_pixel_id'] ?? ''));
+
+        return $openAiPixelId !== '' ? $openAiPixelId : null;
+    }
+
     public function track(string $name, array $params = []): array
     {
         return $this->validator()->validate([
@@ -315,6 +324,11 @@ class LaravelGa4Events
             'injectMetaPixelScript' => (bool) ($this->config['inject_meta_pixel_script'] ?? true),
             'metaPixelEventMap' => $this->metaPixelEventMap(),
             'metaPixelStandardEvents' => $this->metaPixelStandardEvents(),
+            'openAiPixelId' => $this->openAiPixelId(),
+            'injectOpenAiPixelScript' => (bool) ($this->config['inject_openai_pixel_script'] ?? true),
+            'openAiStandardEvents' => EventNameMapper::OPENAI_STANDARD_EVENTS,
+            'openAiSendCustomEvents' => (bool) ($this->config['openai_send_custom_events'] ?? false),
+            'zeroDecimalCurrencies' => OpenAiEventData::ZERO_DECIMAL_CURRENCIES,
             'eventBusName' => (string) ($this->config['event_bus_name'] ?? 'gtm:event'),
             'livewireEventName' => (string) ($this->config['livewire_event_name'] ?? 'gtm-event'),
             'globalJsObject' => (string) ($this->config['global_js_object'] ?? 'GTMEvents'),

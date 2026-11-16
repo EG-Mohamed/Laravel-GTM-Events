@@ -2,6 +2,14 @@
 
 All notable changes to `Laravel-Ga4-Events` will be documented in this file.
 
+## 2.1.0 - 2026-11-16
+
+- OpenAI Ads Conversions API driver (`OpenAiConversionsApiDriver`): sends to `bzr.openai.com/v1/events`, uses OpenAI hashing rules, amounts in minor units, and maps `contents` / `plan_enrollment` / `customer_action` data.
+- OpenAI Measurement Pixel (`oaiq`): injected after consent, sends `page_viewed`, and mirrors every mapped event with the same `event_id` so OpenAI can deduplicate.
+- `event_map` gains an `openai` destination (`purchase` → `order_created`, `sign_up` → `registration_completed`, `generate_lead` → `lead_created`, `start_trial` → `trial_started`, …). Unmapped events are skipped unless `openai_send_custom_events` is on.
+- `TrackingContext` captures `oppref` (query or `__oppref` cookie) and the `__obref` cookie. They are persisted on `ga4_tracking_identities`.
+- **Upgrade:** publish and run the `add_openai_columns_to_ga4_tracking_identities_table` migration.
+
 ## 2.0.0 - 2026-11-16
 
 - Server-side tracking: Meta Conversions API and GA4 Measurement Protocol drivers, delivered by a queued job with retries.

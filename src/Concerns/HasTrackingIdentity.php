@@ -33,6 +33,8 @@ trait HasTrackingIdentity
             'ga_client_id' => $merged->gaClientId,
             'ga_session_id' => $merged->gaSessionId,
             'gclid' => $merged->gclid,
+            'oppref' => $merged->oppref,
+            'obref' => $merged->obref,
             'ip_address' => $merged->ipAddress,
             'user_agent' => $merged->userAgent,
             'utm' => $merged->utm !== [] ? $merged->utm : null,

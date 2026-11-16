@@ -34,6 +34,9 @@
             const metaPixelStandardEvents = new Set(Array.isArray(config.metaPixelStandardEvents) ? config.metaPixelStandardEvents : []);
             const eventMap = typeof config.eventMap === 'object' && config.eventMap !== null ? config.eventMap : {};
             const consentGranted = config.consent !== false;
+            const openAiStandardEvents = new Set(Array.isArray(config.openAiStandardEvents) ? config.openAiStandardEvents : []);
+            const zeroDecimalCurrencies = new Set(Array.isArray(config.zeroDecimalCurrencies) ? config.zeroDecimalCurrencies : []);
+            const threeDecimalCurrencies = new Set(['BHD', 'IQD', 'JOD', 'KWD', 'LYD', 'OMR', 'TND']);
 
             const generateEventId = () => {
                 if (window.crypto && typeof window.crypto.randomUUID === 'function') {
@@ -63,6 +66,109 @@
                 }
 
                 return name;
+            };
+
+            const toOpenAiCustomName = (name) => {
+                const normalized = String(name).trim().replace(/[^A-Za-z0-9_-]+/g, '_').toLowerCase().slice(0, 64).replace(/^[_-]+|[_-]+$/g, '');
+
+                return normalized !== '' && ! openAiStandardEvents.has(normalized) ? normalized : null;
+            };
+
+            const resolveOpenAiName = (name) => {
+                const mapped = eventMap[name] ? eventMap[name].openai : undefined;
+
+                if (mapped === false) {
+                    return null;
+                }
+
+                if (typeof mapped === 'string' && mapped.trim() !== '') {
+                    return mapped.trim();
+                }
+
+                if (openAiStandardEvents.has(name)) {
+                    return name;
+                }
+
+                return config.openAiSendCustomEvents ? toOpenAiCustomName(name) : null;
+            };
+
+            const toOpenAiCurrency = (currency) => typeof currency === 'string' && /^[A-Za-z]{3}$/.test(currency.trim())
+                ? currency.trim().toUpperCase()
+                : null;
+
+            const toMinorUnits = (value, currency) => {
+                const amount = Number(value);
+
+                if (! Number.isFinite(amount) || amount <= 0 || currency === null) {
+                    return null;
+                }
+
+                const exponent = zeroDecimalCurrencies.has(currency) ? 0 : (threeDecimalCurrencies.has(currency) ? 3 : 2);
+
+                return Math.round(amount * (10 ** exponent));
+            };
+
+            const toOpenAiData = (type, params) => {
+                const contentsEvents = ['checkout_started', 'contents_viewed', 'items_added', 'order_created'];
+                const planEvents = ['subscription_created', 'trial_started'];
+                const dataType = contentsEvents.includes(type)
+                    ? 'contents'
+                    : (planEvents.includes(type) ? 'plan_enrollment' : (openAiStandardEvents.has(type) ? 'customer_action' : 'custom'));
+                const currency = toOpenAiCurrency(params.currency);
+                const amount = toMinorUnits(params.value, currency);
+                const data = { type: dataType };
+
+                if (amount !== null) {
+                    data.amount = amount;
+                    data.currency = currency;
+                }
+
+                if (dataType === 'plan_enrollment' || dataType === 'custom') {
+                    const planId = params.plan_id ?? params.item_id;
+
+                    if (planId !== undefined && planId !== null && String(planId) !== '') {
+                        data.plan_id = String(planId);
+                    }
+                }
+
+                if (dataType !== 'customer_action') {
+                    let items = Array.isArray(params.items) ? params.items.filter((item) => item && typeof item === 'object' && item.item_id !== undefined && item.item_id !== null && String(item.item_id) !== '') : [];
+
+                    if (items.length === 0 && params.item_id !== undefined && params.item_id !== null && String(params.item_id) !== '') {
+                        items = [{ item_id: params.item_id, item_name: params.item_name, item_category: params.item_category, quantity: 1 }];
+                    }
+
+                    const contents = items.map((item) => {
+                        const itemCurrency = toOpenAiCurrency(item.currency) || currency;
+                        const itemAmount = toMinorUnits(item.price, itemCurrency);
+                        const content = { id: String(item.item_id), quantity: Math.max(1, parseInt(item.quantity || 1, 10) || 1) };
+
+                        if (item.item_group_id !== undefined && item.item_group_id !== null) {
+                            content.group_id = String(item.item_group_id);
+                        }
+
+                        if (typeof item.item_name === 'string' && item.item_name !== '') {
+                            content.name = item.item_name;
+                        }
+
+                        if (typeof item.item_category === 'string' && item.item_category !== '') {
+                            content.content_type = item.item_category;
+                        }
+
+                        if (itemAmount !== null) {
+                            content.amount = itemAmount;
+                            content.currency = itemCurrency;
+                        }
+
+                        return content;
+                    });
+
+                    if (contents.length > 0) {
+                        data.contents = contents;
+                    }
+                }
+
+                return data;
             };
 
             const toMetaParams = (params) => {
@@ -213,6 +319,44 @@
                 }
 
                 window.fbq('track', 'PageView', {}, { eventID: generateEventId() });
+            };
+
+            const bootstrapOpenAiPixel = () => {
+                if (! consentGranted || ! config.injectOpenAiPixelScript || ! config.openAiPixelId || window.__gtmEventsOpenAiPixelLoaded) {
+                    return;
+                }
+
+                window.__gtmEventsOpenAiPixelLoaded = true;
+
+                ((w, d, s, u) => {
+                    if (w.oaiq) {
+                        return;
+                    }
+
+                    const queue = function () {
+                        queue.q.push(arguments);
+                    };
+
+                    queue.q = [];
+                    w.oaiq = queue;
+
+                    const script = d.createElement(s);
+                    const firstScript = d.getElementsByTagName(s)[0];
+
+                    script.async = true;
+                    script.src = u;
+
+                    if (firstScript?.parentNode) {
+                        firstScript.parentNode.insertBefore(script, firstScript);
+
+                        return;
+                    }
+
+                    (d.head || d.body || d.documentElement).appendChild(script);
+                })(window, document, 'script', 'https://bzrcdn.openai.com/sdk/oaiq.min.js');
+
+                window.oaiq('init', { pixelId: config.openAiPixelId });
+                window.oaiq('measure', 'page_viewed', { type: 'customer_action' }, { event_id: generateEventId() });
             };
 
             const pattern = (() => {
@@ -431,6 +575,34 @@
                 });
             };
 
+            const dispatchToOpenAiPixel = (payload, eventId, source) => {
+                const mappedName = resolveOpenAiName(payload.name);
+
+                if (mappedName === null) {
+                    return;
+                }
+
+                if (typeof window.oaiq !== 'function') {
+                    if (config.openAiPixelId) {
+                        debug('ERROR', `OpenAI Pixel is unavailable for ${source}.`, payload);
+                    }
+
+                    return;
+                }
+
+                const isStandard = openAiStandardEvents.has(mappedName);
+                const type = isStandard ? mappedName : 'custom';
+                const data = toOpenAiData(type, payload.params || {});
+                const options = { event_id: eventId };
+
+                if (! isStandard) {
+                    options.custom_event_name = mappedName;
+                }
+
+                window.oaiq('measure', type, data, options);
+                debug('INFO', `Event pushed to OpenAI Pixel from ${source}.`, { type, event_id: eventId, data, options });
+            };
+
             const dispatchToServer = (payload, eventId, source) => {
                 if (! consentGranted || ! config.collectUrl || typeof window.fetch !== 'function') {
                     return;
@@ -487,6 +659,7 @@
 
                 dispatchToDataLayer(validatedPayload.payload, eventId, source);
                 dispatchToMetaPixel(validatedPayload.payload, eventId, source);
+                dispatchToOpenAiPixel(validatedPayload.payload, eventId, source);
 
                 if (normalizedPayload.server === true) {
                     dispatchToServer(validatedPayload.payload, eventId, source);
@@ -511,6 +684,7 @@
 
             bootstrapGtmScript();
             bootstrapMetaPixel();
+            bootstrapOpenAiPixel();
 
             window[globalObjectName] = {
                 track,

@@ -21,6 +21,8 @@ final class TrackingContext
         public readonly ?string $landingUrl = null,
         public readonly ?string $referrer = null,
         public readonly ?string $pageUrl = null,
+        public readonly ?string $oppref = null,
+        public readonly ?string $obref = null,
     ) {}
 
     public static function fromRequest(Request $request, ?string $measurementId = null): self
@@ -61,6 +63,8 @@ final class TrackingContext
             landingUrl: null,
             referrer: $referrer,
             pageUrl: $request->isMethod('GET') && ! $request->headers->has('X-Livewire') ? $request->fullUrl() : null,
+            oppref: self::clean($request->query('oppref')) ?? self::clean($cookies['__oppref'] ?? null),
+            obref: self::clean($cookies['__obref'] ?? null),
         );
     }
 
@@ -78,6 +82,8 @@ final class TrackingContext
             landingUrl: self::clean($data['landing_url'] ?? null),
             referrer: self::clean($data['referrer'] ?? null),
             pageUrl: self::clean($data['page_url'] ?? null),
+            oppref: self::clean($data['oppref'] ?? null),
+            obref: self::clean($data['obref'] ?? null),
         );
     }
 
@@ -95,6 +101,8 @@ final class TrackingContext
             landingUrl: $this->landingUrl ?? $newer->landingUrl ?? $newer->pageUrl,
             referrer: $newer->referrer ?? $this->referrer,
             pageUrl: $newer->pageUrl ?? $this->pageUrl,
+            oppref: $newer->oppref ?? $this->oppref,
+            obref: $newer->obref ?? $this->obref,
         );
     }
 
@@ -110,7 +118,7 @@ final class TrackingContext
 
     public function fingerprint(): string
     {
-        return md5(json_encode([$this->fbp, $this->fbc, $this->gaClientId, $this->gclid, $this->ipAddress, $this->userAgent, $this->utm]));
+        return md5(json_encode([$this->fbp, $this->fbc, $this->gaClientId, $this->gclid, $this->ipAddress, $this->userAgent, $this->utm, $this->oppref, $this->obref]));
     }
 
     public function toArray(): array
@@ -127,6 +135,8 @@ final class TrackingContext
             'landing_url' => $this->landingUrl,
             'referrer' => $this->referrer,
             'page_url' => $this->pageUrl,
+            'oppref' => $this->oppref,
+            'obref' => $this->obref,
         ];
     }
 
