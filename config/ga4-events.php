@@ -2,6 +2,7 @@
 
 use MohamedSaid\LaravelGa4Events\Drivers\Ga4MeasurementProtocolDriver;
 use MohamedSaid\LaravelGa4Events\Drivers\MetaConversionsApiDriver;
+use MohamedSaid\LaravelGa4Events\Drivers\OpenAiConversionsApiDriver;
 
 return [
     'enabled' => (bool) env('GTM_EVENTS_ENABLED', true),
@@ -11,6 +12,9 @@ return [
     'inject_meta_pixel_script' => (bool) env('META_PIXEL_INJECT_SCRIPT', true),
     'meta_pixel_advanced_matching' => (bool) env('META_PIXEL_ADVANCED_MATCHING', true),
     'meta_pixel_event_map' => [],
+    'openai_pixel_id' => env('OPENAI_PIXEL_ID'),
+    'inject_openai_pixel_script' => (bool) env('OPENAI_PIXEL_INJECT_SCRIPT', true),
+    'openai_send_custom_events' => (bool) env('OPENAI_SEND_CUSTOM_EVENTS', false),
     'meta_pixel_standard_events' => [
         'AddPaymentInfo',
         'AddToCart',
@@ -31,20 +35,20 @@ return [
         'ViewContent',
     ],
     'event_map' => [
-        'purchase' => ['meta' => 'Purchase'],
-        'begin_checkout' => ['meta' => 'InitiateCheckout'],
+        'purchase' => ['meta' => 'Purchase', 'openai' => 'order_created'],
+        'begin_checkout' => ['meta' => 'InitiateCheckout', 'openai' => 'checkout_started'],
         'add_payment_info' => ['meta' => 'AddPaymentInfo'],
-        'add_to_cart' => ['meta' => 'AddToCart'],
+        'add_to_cart' => ['meta' => 'AddToCart', 'openai' => 'items_added'],
         'add_to_wishlist' => ['meta' => 'AddToWishlist'],
-        'sign_up' => ['meta' => 'CompleteRegistration'],
-        'generate_lead' => ['meta' => 'Lead'],
-        'view_item' => ['meta' => 'ViewContent'],
+        'sign_up' => ['meta' => 'CompleteRegistration', 'openai' => 'registration_completed'],
+        'generate_lead' => ['meta' => 'Lead', 'openai' => 'lead_created'],
+        'view_item' => ['meta' => 'ViewContent', 'openai' => 'contents_viewed'],
         'search' => ['meta' => 'Search'],
-        'start_trial' => ['meta' => 'StartTrial'],
-        'subscribe' => ['meta' => 'Subscribe'],
+        'start_trial' => ['meta' => 'StartTrial', 'openai' => 'trial_started'],
+        'subscribe' => ['meta' => 'Subscribe', 'openai' => 'subscription_created'],
         'contact' => ['meta' => 'Contact'],
-        'schedule' => ['meta' => 'Schedule'],
-        'exception' => ['meta' => false],
+        'schedule' => ['meta' => 'Schedule', 'openai' => 'appointment_scheduled'],
+        'exception' => ['meta' => false, 'openai' => false],
     ],
     'meta' => [
         'capi' => [
@@ -54,6 +58,16 @@ return [
             'graph_url' => env('META_CAPI_GRAPH_URL', 'https://graph.facebook.com'),
             'graph_version' => env('META_CAPI_GRAPH_VERSION', 'v23.0'),
             'action_source' => env('META_CAPI_ACTION_SOURCE', 'website'),
+        ],
+    ],
+    'openai' => [
+        'capi' => [
+            'enabled' => (bool) env('OPENAI_CAPI_ENABLED', true),
+            'api_key' => env('OPENAI_CAPI_API_KEY'),
+            'endpoint' => env('OPENAI_CAPI_ENDPOINT', 'https://bzr.openai.com/v1/events'),
+            'validate_only' => (bool) env('OPENAI_CAPI_VALIDATE_ONLY', false),
+            'integration_source' => env('OPENAI_CAPI_INTEGRATION_SOURCE'),
+            'action_source' => env('OPENAI_CAPI_ACTION_SOURCE', 'web'),
         ],
     ],
     'ga4' => [
@@ -77,6 +91,7 @@ return [
         'drivers' => [
             MetaConversionsApiDriver::class,
             Ga4MeasurementProtocolDriver::class,
+            OpenAiConversionsApiDriver::class,
         ],
     ],
     'context' => [

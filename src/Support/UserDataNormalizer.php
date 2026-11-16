@@ -110,4 +110,24 @@ final class UserDataNormalizer
             'address' => $address !== [] ? [$address] : null,
         ]);
     }
+
+    public static function forOpenAi(array $normalized): array
+    {
+        $phone = isset($normalized['phone']) ? ltrim($normalized['phone'], '0') : null;
+        $phone = $phone !== null && preg_match('/^\d{8,15}$/', $phone) === 1 ? $phone : null;
+        $country = isset($normalized['country']) && preg_match('/^[a-z]{2}$/', $normalized['country']) === 1 ? $normalized['country'] : null;
+        $postalCode = isset($normalized['zip']) && preg_match('/^[A-Za-z0-9 -]{1,32}$/', $normalized['zip']) === 1 ? $normalized['zip'] : null;
+
+        return array_filter([
+            'emails_sha256' => isset($normalized['email']) ? [self::hash($normalized['email'])] : null,
+            'phone_numbers_sha256' => $phone !== null ? [self::hash($phone)] : null,
+            'first_names_sha256' => isset($normalized['first_name']) ? [self::hash($normalized['first_name'])] : null,
+            'last_names_sha256' => isset($normalized['last_name']) ? [self::hash($normalized['last_name'])] : null,
+            'external_ids_sha256' => isset($normalized['external_id']) ? [self::hash(trim($normalized['external_id']))] : null,
+            'cities' => isset($normalized['city']) ? [Str::limit($normalized['city'], 128, '')] : null,
+            'regions' => isset($normalized['state']) ? [Str::limit($normalized['state'], 128, '')] : null,
+            'postal_codes' => $postalCode !== null ? [$postalCode] : null,
+            'countries' => $country !== null ? [Str::upper($country)] : null,
+        ]);
+    }
 }

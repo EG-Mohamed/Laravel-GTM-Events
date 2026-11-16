@@ -25,6 +25,7 @@ class LaravelGa4EventsServiceProvider extends PackageServiceProvider
             ->hasMigrations([
                 'create_ga4_tracking_identities_table',
                 'create_ga4_server_events_table',
+                'add_openai_columns_to_ga4_tracking_identities_table',
             ])
             ->hasCommand(LaravelGa4EventsCommand::class);
     }
@@ -46,7 +47,7 @@ class LaravelGa4EventsServiceProvider extends PackageServiceProvider
             return "<?php echo app('view')->make('ga4-events::components.ga4-events', ['ga4Config' => app('".LaravelGa4Events::class."')->frontendPayload()])->render(); ?>";
         });
 
-        EncryptCookies::except(['_fbp', '_fbc']);
+        EncryptCookies::except(['_fbp', '_fbc', '__oppref', '__obref']);
 
         $this->app->make(Router::class)->aliasMiddleware('ga4-events.context', CaptureTrackingContext::class);
 

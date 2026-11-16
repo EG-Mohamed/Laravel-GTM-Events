@@ -39,6 +39,8 @@ class TrackingIdentity extends Model
             'utm',
             'landing_url',
             'referrer',
+            'oppref',
+            'obref',
         ]));
     }
 }

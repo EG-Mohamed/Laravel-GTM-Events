@@ -1,0 +1,23 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('ga4_tracking_identities', function (Blueprint $table): void {
+            $table->string('oppref', 512)->nullable()->after('gclid');
+            $table->string('obref', 512)->nullable()->after('oppref');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('ga4_tracking_identities', function (Blueprint $table): void {
+            $table->dropColumn(['oppref', 'obref']);
+        });
+    }
+};
